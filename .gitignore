@@ -1,0 +1,27 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.tmp
+
+# Local media/output files
+*.mp3
+*.mp4
+*.wav
+*.m4a
+*.mkv
+*.flac
+*.ogg
+*.webm
+*.aac
+*.wma
+*.srt
+*.vtt
+*.tsv
+*.json
+
+# Local diagnostics/backups
+*.backup.*
+*.before-*

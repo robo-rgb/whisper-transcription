@@ -1,0 +1,6 @@
+--extra-index-url https://pypi.org/simple
+--index-url https://download.pytorch.org/whl/cu128
+torch
+torchvision
+torchaudio
+openai-whisper==20250625
