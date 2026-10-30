@@ -31,8 +31,11 @@ from typing import Any, Callable, Iterable
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
+from diarization_runner import ensure_diarization_ready, run_diarization
+from speaker_segments import apply_diarization, speaker_display_name
+
 APP_NAME = "Auto Transcriber"
-APP_VERSION = "1.3"
+APP_VERSION = "1.4-dev"
 
 # --- Dependency check -------------------------------------------------------
 try:
@@ -77,7 +80,10 @@ def format_timestamp_vtt(seconds: float) -> str:
 
 
 def _segment_text(seg: dict[str, Any]) -> str:
-    return str(seg.get("text", "")).strip()
+    text = str(seg.get("text", "")).strip()
+    if "speaker" in seg:
+        return f"[{speaker_display_name(seg.get('speaker'))}] {text}"
+    return text
 
 
 def segments_to_srt(result: dict[str, Any]) -> str:
@@ -101,6 +107,8 @@ def segments_to_vtt(result: dict[str, Any]) -> str:
 
 
 def segments_to_txt(result: dict[str, Any]) -> str:
+    if "speaker_turns" in result:
+        return "\n".join(_segment_text(seg) for seg in result.get("segments", [])).strip() + "\n"
     text = str(result.get("text", "")).strip()
     if text:
         return text + "\n"
@@ -121,12 +129,17 @@ def result_to_json(result: dict[str, Any]) -> str:
 
 
 def result_to_tsv(result: dict[str, Any]) -> str:
-    lines = ["start\tend\ttext"]
+    diarized = "speaker_turns" in result
+    lines = ["start\tend\tspeaker\ttext" if diarized else "start\tend\ttext"]
     for seg in result.get("segments", []):
         start = format_timestamp_vtt(seg.get("start", 0))
         end = format_timestamp_vtt(seg.get("end", 0))
-        text = _segment_text(seg).replace("\t", " ").replace("\r", " ").replace("\n", " ")
-        lines.append(f"{start}\t{end}\t{text}")
+        text = str(seg.get("text", "")).strip().replace("\t", " ").replace("\r", " ").replace("\n", " ")
+        if diarized:
+            speaker = speaker_display_name(seg.get("speaker"))
+            lines.append(f"{start}\t{end}\t{speaker}\t{text}")
+        else:
+            lines.append(f"{start}\t{end}\t{text}")
     return "\n".join(lines).strip() + "\n"
 
 
@@ -201,7 +214,7 @@ class WhisperApp:
         self.root = root
         self.root.title(f"{APP_NAME} {APP_VERSION}")
         self.root.minsize(900, 760)
-        self.root.geometry("960x840")
+        self.root.geometry("980x880")
         self.root.protocol("WM_DELETE_WINDOW", self.close_app)
 
         self.selected_files: list[str] = []
@@ -395,7 +408,27 @@ class WhisperApp:
             settings_frame,
             text="Optional vocabulary/context hint, such as names, acronyms, or specialized terms.",
             style="Muted.TLabel",
-        ).grid(row=4, column=1, columnspan=3, sticky="w", padx=(0, 10), pady=(3, 10))
+        ).grid(row=4, column=1, columnspan=3, sticky="w", padx=(0, 10), pady=(3, 6))
+
+        self.diarize_var = tk.BooleanVar(value=False)
+        self.diarize_checkbox = ttk.Checkbutton(
+            settings_frame, text="Identify speakers (local, optional setup)",
+            variable=self.diarize_var, command=self._toggle_speaker_settings,
+        )
+        self.diarize_checkbox.grid(row=5, column=0, columnspan=2, sticky="w", padx=(10, 8), pady=(4, 6))
+        ttk.Label(settings_frame, text="Speakers").grid(row=5, column=2, sticky="e", padx=(10, 8), pady=(4, 6))
+        self.speaker_count_var = tk.StringVar(value="Auto")
+        self.speaker_count_combo = ttk.Combobox(
+            settings_frame, textvariable=self.speaker_count_var,
+            values=["Auto"] + [str(n) for n in range(1, 9)],
+            state="disabled", width=10,
+        )
+        self.speaker_count_combo.grid(row=5, column=3, sticky="w", pady=(4, 6))
+        ttk.Label(
+            settings_frame,
+            text="Speaker labels are estimates; verify them before publication. See README-speaker-diarization.md.",
+            style="Muted.TLabel",
+        ).grid(row=6, column=0, columnspan=4, sticky="w", padx=(10, 10), pady=(0, 10))
 
         # Progress and status
         progress_frame = ttk.Frame(main)
@@ -553,6 +586,9 @@ class WhisperApp:
         percent = 0 if total <= 0 else (current / total) * 100
         self.root.after(0, lambda: self.progress_var.set(percent))
 
+    def _toggle_speaker_settings(self) -> None:
+        self.speaker_count_combo.config(state="readonly" if self.diarize_var.get() else "disabled")
+
     def _set_running_state(self, running: bool) -> None:
         if running:
             self.btn_run.config(state="disabled", text="Running...")
@@ -563,6 +599,8 @@ class WhisperApp:
             self.fmt_combo.config(state="disabled")
             self.lang_combo.config(state="disabled")
             self.prompt_entry.config(state="disabled")
+            self.diarize_checkbox.config(state="disabled")
+            self.speaker_count_combo.config(state="disabled")
         else:
             self.btn_run.config(state="normal", text="Start Transcription")
             self.btn_cancel.config(state="disabled")
@@ -571,6 +609,8 @@ class WhisperApp:
             self.fmt_combo.config(state="readonly")
             self.lang_combo.config(state="readonly")
             self.prompt_entry.config(state="normal")
+            self.diarize_checkbox.config(state="normal")
+            self._toggle_speaker_settings()
             self.is_running = False
 
     # ------------------------------------------------------------------ Transcription
@@ -581,6 +621,12 @@ class WhisperApp:
         if not self.ffmpeg_path:
             messagebox.showerror("FFmpeg Not Found", "FFmpeg was not found on PATH. Whisper cannot decode most media files until FFmpeg is installed and available on PATH.")
             return
+        if self.diarize_var.get():
+            try:
+                ensure_diarization_ready()
+            except RuntimeError as exc:
+                messagebox.showerror("Speaker Recognition Setup", str(exc))
+                return
 
         self.cancel_flag.clear()
         self.is_running = True
@@ -637,6 +683,9 @@ class WhisperApp:
             model = self._get_model(model_name)
             lang_code = self._language_code()
             formats = self._selected_formats()
+            identify_speakers = self.diarize_var.get()
+            requested_speakers = self.speaker_count_var.get()
+            num_speakers = None if requested_speakers == "Auto" else int(requested_speakers)
 
             total = len(self.selected_files)
             completed_files = 0
@@ -663,12 +712,24 @@ class WhisperApp:
                 initial_prompt = self.prompt_var.get().strip()
                 if initial_prompt:
                     kwargs["initial_prompt"] = initial_prompt
+                if identify_speakers:
+                    kwargs["word_timestamps"] = True
 
                 result = model.transcribe(filepath, **kwargs)
 
                 if self.cancel_flag.is_set():
                     print(f"Cancelled after current file: {basename}")
                     break
+
+                if identify_speakers:
+                    self._set_status(f"Identifying speakers {idx}/{total}: {basename}")
+                    print("Identifying speakers locally with pyannote Community-1...")
+                    turns = run_diarization(filepath, self.ffmpeg_path, num_speakers)
+                    result = apply_diarization(result, turns)
+                    print(f"Detected {len(result['speaker_labels'])} speaker(s). Verify the labels.")
+                    if self.cancel_flag.is_set():
+                        print(f"Cancelled after speaker detection: {basename}")
+                        break
 
                 stem = os.path.splitext(basename)[0]
                 save_dir = self.output_folder or os.path.dirname(filepath)
