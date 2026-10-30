@@ -89,7 +89,12 @@ specific count between 1 and 8 may be selected. Choose any export format
 or **All Formats**. The app runs Whisper with word timestamps, converts the
 original media to temporary mono 16-kHz WAV with FFmpeg, runs the pyannote
 worker, aligns Whisper words to exclusive speaker turns, and deletes the
-temporary WAV and JSON files afterward.
+temporary WAV and JSON files afterward. The worker loads FFmpeg's temporary
+16-kHz mono PCM16 WAV into a memory-backed waveform using Python's standard
+library, then passes it directly to pyannote. This bypasses TorchCodec's
+file-decoder DLLs (which may fail to load on some Windows installations).
+TorchCodec may remain installed as a pyannote dependency, but the worker
+does not invoke it to open the recording.
 
 Exports use **Speaker 1**, **Speaker 2**, etc., for model-generated labels.
 Words outside detected speech are labelled **Unknown speaker**. The JSON
