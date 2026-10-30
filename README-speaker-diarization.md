@@ -15,17 +15,30 @@ without requiring pyannote or Hugging Face credentials.
 
 ## Initial setup on Windows (PowerShell)
 
-1. Install **Python 3.11 or newer** (64-bit) and confirm FFmpeg is on PATH.
-2. From the repository folder, create the *separate* environment and install:
+1. Install **Python 3.11** (64-bit) and confirm FFmpeg is on PATH.
+2. From the repository folder, run the safe Windows setup script:
 
    ```powershell
-   py -3.11 -m venv .venv-diarize
-   .\.venv-diarize\Scripts\python.exe -m pip install --upgrade pip
-   .\.venv-diarize\Scripts\python.exe -m pip install "pyannote.audio>=4.0,<5"
+   .\\scripts\\setup-speaker-diarization.ps1
    ```
 
-   If the `py -3.11` launcher is unavailable, use the path to a Python 3.11+
-   executable. Do **not** install pyannote into the existing `.venv`.
+   This creates `.venv-diarize`, installs pyannote there, and reports
+   whether that *separate* Python environment can use CUDA. It does **not**
+   alter the original Whisper `.venv`. To verify without installing:
+
+   ```powershell
+   .\\scripts\\setup-speaker-diarization.ps1 -VerifyOnly
+   ```
+
+   If PowerShell blocks the script, you can invoke it for this process only:
+
+   ```powershell
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\setup-speaker-diarization.ps1
+   ```
+
+   If the `py -3.11` launcher is unavailable, install Python 3.11 or create
+   `.venv-diarize` using the full path to a Python 3.11 executable.
+   Do **not** install pyannote into the existing `.venv`.
 
 3. Sign into Hugging Face, accept the conditions for the model, and log in
    **inside the speaker environment**:
@@ -66,6 +79,11 @@ Words outside detected speech are labelled **Unknown speaker**. The JSON
 export also preserves the model's raw `SPEAKER_00` labels and diarization
 turns. When diarization is disabled, original transcript formats are unchanged.
 
+**Failure handling:** if the optional speaker model encounters an error, the app
+keeps the successful Whisper transcription, saves it **without speaker labels**,
+and displays a warning. A failed diarization pass never implies that speakers
+were accurately distinguished.
+
 **Limits:** speaker assignments are estimates, not identity verification.
 Rapid interruptions, overlapping speech, background noise, and music can
 produce incorrect or unknown labels. A Whisper word may span a real speaker
@@ -88,6 +106,9 @@ python -m unittest discover -s tests -v
 python -m compileall -q transcribe-gui.py speaker_segments.py diarization_runner.py diarization_worker.py
 ```
 
-These tests check segmentation and exports, not actual GPU performance or
-speaker accuracy. Integration validation requires a real multi-speaker
-recording on the target Windows computer.
+Automated GitHub Actions checks run on Windows and Linux, with Python 3.11 and
+3.12, and validate the PowerShell script syntax. These tests check model
+integration contracts, segmentation, exports, and error handling; they do
+not run pyannote weights or measure actual GPU performance or speaker accuracy.
+Integration validation still requires a real multi-speaker recording on the
+target Windows computer.
