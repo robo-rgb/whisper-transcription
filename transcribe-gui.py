@@ -36,7 +36,7 @@ from speaker_segments import apply_diarization, speaker_display_name
 from transcript_cleanup import cleanup_diarized_result
 
 APP_NAME = "Auto Transcriber"
-APP_VERSION = "1.4-dev"
+APP_VERSION = "1.4.0"
 
 # --- Dependency check -------------------------------------------------------
 try:
