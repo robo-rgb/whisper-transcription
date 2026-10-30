@@ -101,6 +101,19 @@ Words outside detected speech are labelled **Unknown speaker**. The JSON
 export also preserves the model's raw `SPEAKER_00` labels and diarization
 turns. When diarization is disabled, original transcript formats are unchanged.
 
+**Subtitle cleanup:** when diarization succeeds, the app removes empty or
+zero-duration subtitle segments. It also removes an obviously implausible
+end-of-recording echo only when a long phrase repeats earlier dialogue within
+60 seconds yet is squeezed into fewer than 1/9 of a second per word. Plausible
+repetitions are retained and flagged in the GUI log for human review, rather
+than silently erased. The JSON export includes a `transcript_cleanup` audit
+summary; its top-level `text` remains the original Whisper text, while
+`segments` holds the cleaned speaker-aligned output.
+
+To save the full diagnostic JSON alongside the subtitle file, select
+**All Formats** (or **JSON (Full Whisper Result)** for JSON only). The default
+**SRT (Subtitles)** option saves only an SRT.
+
 **Failure handling:** if the optional speaker model encounters an error, the app
 keeps the successful Whisper transcription, saves it **without speaker labels**,
 and displays a warning. A failed diarization pass never implies that speakers
