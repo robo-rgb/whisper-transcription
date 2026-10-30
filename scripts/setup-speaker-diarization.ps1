@@ -1,7 +1,9 @@
 # Installs pyannote only into .venv-diarize. Never changes the Whisper .venv.
 [CmdletBinding()]
 param(
-    [switch]$VerifyOnly
+    [switch]$VerifyOnly,
+    [ValidateSet("3.11", "3.12")]
+    [string]$PythonVersion = "3.12"
 )
 
 $ErrorActionPreference = "Stop"
@@ -23,10 +25,10 @@ if (-not (Test-Path $DiarizePython)) {
         throw "The separate speaker environment is missing. Run this script without -VerifyOnly to install."
     }
     if (-not (Get-Command py -ErrorAction SilentlyContinue)) {
-        throw "Python Launcher (py.exe) not found. Install 64-bit Python 3.11 and try again."
+        throw "Python Launcher (py.exe) not found. Install 64-bit Python 3.12 and try again."
     }
-    Write-Host "Creating .venv-diarize using Python 3.11. Existing .venv will not be touched."
-    & py -3.11 -m venv (Join-Path $AppRoot ".venv-diarize")
+    Write-Host "Creating .venv-diarize using Python $PythonVersion. Existing .venv will not be touched."
+    & py "-$PythonVersion" -m venv (Join-Path $AppRoot ".venv-diarize")
     Assert-ExitCode "Creating separate speaker environment"
 }
 
