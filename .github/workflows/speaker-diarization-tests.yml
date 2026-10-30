@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: Compile app and worker
-        run: python -m compileall -q transcribe-gui.py speaker_segments.py diarization_runner.py diarization_worker.py
+        run: python -m compileall -q transcribe-gui.py speaker_segments.py diarization_runner.py diarization_worker.py transcript_cleanup.py
       - name: Pure Python regression tests
         run: python -m unittest discover -s tests -v
       - name: Validate PowerShell setup script syntax
