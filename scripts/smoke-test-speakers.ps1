@@ -57,8 +57,9 @@ try {
 
     $data = Get-Content -Raw -LiteralPath $Json | ConvertFrom-Json
     $turns = @($data.turns | Where-Object { $null -ne $_ })
-    $speakers = @($turns | ForEach-Object { $_.speaker } | Sort-Object -Unique)
-    Write-Host "Recognized $($speakers.Count) distinct speaker label(s), $($turns.Count) speaker turn(s)."
+    # Do not reuse the -Speakers [int] parameter: PowerShell variables are case-insensitive.
+    $detectedSpeakerLabels = @($turns | ForEach-Object { $_.speaker } | Sort-Object -Unique)
+    Write-Host "Recognized $($detectedSpeakerLabels.Count) distinct speaker label(s), $($turns.Count) speaker turn(s)."
     if ($turns.Count -eq 0) {
         throw "No speaker turns detected in this recording."
     }
