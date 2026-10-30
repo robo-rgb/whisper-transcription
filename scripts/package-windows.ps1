@@ -28,7 +28,8 @@ $Files = @(
     "README-speaker-diarization.md",
     "requirements-cuda-cu130.txt",
     "scripts/setup-speaker-diarization.ps1",
-    "scripts/smoke-test-speakers.ps1"
+    "scripts/smoke-test-speakers.ps1",
+    "scripts/verify-windows-install.ps1"
 )
 
 New-Item -ItemType Directory -Force -Path $Dist | Out-Null
@@ -62,6 +63,7 @@ try {
 
     # Validate archive contents and refuse accidental additions to the whitelist.
     Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
     $Zip = [System.IO.Compression.ZipFile]::OpenRead($ArchivePath)
     try {
         $Actual = @(
