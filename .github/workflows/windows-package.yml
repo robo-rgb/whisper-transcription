@@ -1,0 +1,74 @@
+name: Package Windows Auto Transcriber
+
+on:
+  push:
+    branches: [feature/speaker-diarization, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-bundle:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PowerShell packaging script syntax
+        shell: pwsh
+        run: |
+          Get-ChildItem scripts -Filter '*.ps1' | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count) {
+              throw "PowerShell syntax errors in $($_.Name): $($errors -join ', ')"
+            }
+          }
+      - name: Create clean Windows ZIP and SHA256
+        shell: pwsh
+        run: ./scripts/package-windows.ps1 -Version "1.4.0"
+      - name: Verify ZIP can be extracted and contains only approved files
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archive = 'dist/Auto-Transcriber-1.4.0-Windows.zip'
+          $hashFile = "$archive.sha256"
+          if (-not (Test-Path -LiteralPath $archive)) { throw 'Missing ZIP' }
+          if (-not (Test-Path -LiteralPath $hashFile)) { throw 'Missing SHA file' }
+          $hash = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          $expectedHash = ((Get-Content $hashFile -Raw).Trim() -split '\s+')[0]
+          if ($hash -ne $expectedHash) { throw 'SHA256 mismatch' }
+          $extracted = Join-Path $env:RUNNER_TEMP 'whisper-package-check'
+          Expand-Archive -LiteralPath $archive -DestinationPath $extracted -Force
+          $package = Join-Path $extracted 'Auto-Transcriber'
+          $required = @(
+            'transcribe-app.bat', 'launch-transcribe.ps1',
+            'transcribe-gui.py', 'speaker_segments.py', 'transcript_cleanup.py',
+            'diarization_worker.py', 'diarization_runner.py',
+            'scripts/setup-speaker-diarization.ps1',
+            'scripts/smoke-test-speakers.ps1',
+            'scripts/verify-windows-install.ps1',
+            'README-Windows-package.md', 'README-speaker-diarization.md',
+            'requirements-cuda-cu130.txt', 'PACKAGE-INFO.txt'
+          )
+          $actual = @(Get-ChildItem $package -File -Recurse | ForEach-Object {
+            [IO.Path]::GetRelativePath($package, $_.FullName).Replace('\','/')
+          })
+          $missing = @($required | Where-Object { $_ -notin $actual })
+          $extra = @($actual | Where-Object { $_ -notin $required })
+          if ($missing.Count -or $extra.Count) {
+            throw "Archive mismatch. Missing: $($missing -join ', '). Extra: $($extra -join ', ')"
+          }
+          if (Get-ChildItem $package -Recurse -Force | Where-Object {
+            $_.Name -match '(?i)(\.venv|token|\.env|\.git|cache)' -or
+            ($_.Extension -in @('.mp3','.wav','.srt','.json','.log'))
+          }) { throw 'Unapproved sensitive or generated files in ZIP' }
+          Write-Host "PASS: $($actual.Count) approved files, SHA256 verified"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Auto-Transcriber-1.4.0-Windows
+          path: |
+            dist/Auto-Transcriber-1.4.0-Windows.zip
+            dist/Auto-Transcriber-1.4.0-Windows.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
