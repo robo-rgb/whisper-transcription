@@ -46,9 +46,9 @@ target.write_text(json.dumps({"turns": [
     $testScript = Join-Path $scriptsDir "smoke-test-speakers.ps1"
     foreach ($requested in @(0, 2)) {
         if ($requested -eq 0) {
-            $result = (& $testScript -InputMedia $sample 2>&1 | Out-String)
+            $result = (& $testScript -InputMedia $sample 6>&1 | Out-String)
         } else {
-            $result = (& $testScript -InputMedia $sample -Speakers $requested 2>&1 | Out-String)
+            $result = (& $testScript -InputMedia $sample -Speakers $requested 6>&1 | Out-String)
         }
         if ($result -notmatch "Recognized 2 distinct speaker label\(s\), 3 speaker turn\(s\)\.") {
             throw "Incorrect speaker summary for -Speakers $requested : $result"
