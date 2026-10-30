@@ -33,6 +33,7 @@ from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 from diarization_runner import ensure_diarization_ready, run_diarization
 from speaker_segments import apply_diarization, speaker_display_name
+from transcript_cleanup import cleanup_diarized_result
 
 APP_NAME = "Auto Transcriber"
 APP_VERSION = "1.4-dev"
@@ -728,7 +729,19 @@ class WhisperApp:
                     try:
                         turns = run_diarization(filepath, self.ffmpeg_path, num_speakers)
                         result = apply_diarization(result, turns)
+                        result, cleanup = cleanup_diarized_result(result)
                         print(f"Detected {len(result['speaker_labels'])} speaker(s). Verify the labels.")
+                        if cleanup["removed_empty_cues"] or cleanup["removed_terminal_echoes"]:
+                            print(
+                                "Subtitle cleanup: removed "
+                                f"{cleanup['removed_empty_cues']} empty/zero-length cue(s) and "
+                                f"{cleanup['removed_terminal_echoes']} implausible terminal echo(es)."
+                            )
+                        for repeat in cleanup["possible_repetitions_to_review"][:5]:
+                            print(
+                                f"REVIEW: Possible repeated speech around {repeat['start']:.2f}s; "
+                                "retained to avoid deleting genuine dialogue."
+                            )
                     except Exception as error:
                         # A failed optional model must not discard a successful
                         # Whisper transcript. Never invent speaker assignments.
