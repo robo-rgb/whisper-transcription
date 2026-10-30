@@ -64,6 +64,22 @@ without requiring pyannote or Hugging Face credentials.
 
 5. Launch the application normally using `transcribe-app.bat`.
 
+## Test speaker detection before using the GUI
+
+After completing setup and Hugging Face login, choose a short recording
+containing two or more speakers (use a recording you have permission to process).
+Run this PowerShell command from the project folder:
+
+```powershell
+.\\scripts\\smoke-test-speakers.ps1 -InputMedia "C:\\path\\to\\sample.wav"
+```
+
+If exactly two speakers are expected, add `-Speakers 2`. The command prints
+the number of recognized speakers and the first 25 speaker turns. It deletes
+temporary audio/JSON and leaves the original recording untouched. Compare the
+reported speaker changes to the recording before enabling diarization in the
+GUI. The first run may download model weights.
+
 ## Usage
 
 Select the audio or video files. Check **Identify speakers (local, optional
@@ -107,7 +123,7 @@ python -m compileall -q transcribe-gui.py speaker_segments.py diarization_runner
 ```
 
 Automated GitHub Actions checks run on Windows and Linux, with Python 3.11 and
-3.12, and validate the PowerShell script syntax. These tests check model
+3.12, and validate both PowerShell scripts' syntax. These tests check model
 integration contracts, segmentation, exports, and error handling; they do
 not run pyannote weights or measure actual GPU performance or speaker accuracy.
 Integration validation still requires a real multi-speaker recording on the
