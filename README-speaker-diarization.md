@@ -15,7 +15,7 @@ without requiring pyannote or Hugging Face credentials.
 
 ## Initial setup on Windows (PowerShell)
 
-1. Install **Python 3.11** (64-bit) and confirm FFmpeg is on PATH.
+1. Install **Python 3.12** (64-bit) and confirm FFmpeg is on PATH. Python 3.11 is also supported by the setup script.
 2. From the repository folder, run the safe Windows setup script:
 
    ```powershell
@@ -36,9 +36,10 @@ without requiring pyannote or Hugging Face credentials.
    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\setup-speaker-diarization.ps1
    ```
 
-   If the `py -3.11` launcher is unavailable, install Python 3.11 or create
-   `.venv-diarize` using the full path to a Python 3.11 executable.
-   Do **not** install pyannote into the existing `.venv`.
+   The setup script defaults to Python 3.12. If you only have Python 3.11,
+   run it with `-PythonVersion 3.11`. On Windows, use `py -0p` to list
+   installed Python interpreters. Do **not** install pyannote into the
+   existing `.venv` (which may use a different Python version).
 
 3. Sign into Hugging Face, accept the conditions for the model, and log in
    **inside the speaker environment**:
