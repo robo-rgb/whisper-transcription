@@ -39,8 +39,11 @@ class WorkerContractTests(unittest.TestCase):
             with patch.dict(sys.modules, {
                 "torch": torch_stub, "pyannote": pyannote_stub,
                 "pyannote.audio": audio_stub,
-            }), patch.object(sys, "argv", argv), patch.dict(os.environ, {"HF_TOKEN": "fake-hf-token"}):
+            }), patch.object(sys, "argv", argv), patch.dict(os.environ, {"HF_TOKEN": "fake-hf-token"}), \
+                 patch.object(diarization_worker, "load_pcm16_waveform", return_value=("loaded-audio", 16000)) as load_wave:
+                
                 diarization_worker.main()
+                load_wave.assert_called_once_with("example.wav", torch_stub)
             data = json.loads(output.read_text(encoding="utf-8"))
         return data, factory, pipeline
 
@@ -50,14 +53,14 @@ class WorkerContractTests(unittest.TestCase):
             "pyannote/speaker-diarization-community-1", token="fake-hf-token"
         )
         pipeline.to.assert_called_once_with("cuda")
-        pipeline.assert_called_once_with("example.wav", num_speakers=2)
+        pipeline.assert_called_once_with({"waveform": "loaded-audio", "sample_rate": 16000}, num_speakers=2)
         self.assertEqual([t["speaker"] for t in data["turns"]], ["SPEAKER_00", "SPEAKER_01"])
         self.assertEqual(data["turns"][0]["start"], 0.25)
 
     def test_auto_speaker_count_cpu(self):
         data, _, pipeline = self._invoke()
         pipeline.to.assert_not_called()
-        pipeline.assert_called_once_with("example.wav")
+        pipeline.assert_called_once_with({"waveform": "loaded-audio", "sample_rate": 16000})
         self.assertEqual(len(data["turns"]), 2)
 
 
