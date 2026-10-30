@@ -689,6 +689,7 @@ class WhisperApp:
 
             total = len(self.selected_files)
             completed_files = 0
+            speaker_failures: list[str] = []
 
             for idx, filepath in enumerate(self.selected_files, start=1):
                 if self.cancel_flag.is_set():
@@ -724,9 +725,17 @@ class WhisperApp:
                 if identify_speakers:
                     self._set_status(f"Identifying speakers {idx}/{total}: {basename}")
                     print("Identifying speakers locally with pyannote Community-1...")
-                    turns = run_diarization(filepath, self.ffmpeg_path, num_speakers)
-                    result = apply_diarization(result, turns)
-                    print(f"Detected {len(result['speaker_labels'])} speaker(s). Verify the labels.")
+                    try:
+                        turns = run_diarization(filepath, self.ffmpeg_path, num_speakers)
+                        result = apply_diarization(result, turns)
+                        print(f"Detected {len(result['speaker_labels'])} speaker(s). Verify the labels.")
+                    except Exception as error:
+                        # A failed optional model must not discard a successful
+                        # Whisper transcript. Never invent speaker assignments.
+                        detail = f"{basename}: {error}"
+                        speaker_failures.append(detail)
+                        print(f"WARNING: Speaker identification failed: {detail}")
+                        print("Saving the original Whisper transcript WITHOUT speaker labels.")
                     if self.cancel_flag.is_set():
                         print(f"Cancelled after speaker detection: {basename}")
                         break
@@ -752,11 +761,21 @@ class WhisperApp:
                 print(f"\n{'=' * 60}")
                 print(f"Completed: {completed_files} media file(s), {count} output file(s), elapsed {elapsed:.1f}s.")
                 self.root.after(0, self._enable_open_button)
-                if count == 1:
+                if speaker_failures:
+                    summary = "\n".join(speaker_failures)
+                    warning = (
+                        f"Saved {count} output file(s), but speaker identification failed for "
+                        f"{len(speaker_failures)} recording(s). Those transcripts were saved WITHOUT labels.\n\n"
+                        f"{summary[:1000]}"
+                    )
+                    self.root.after(0, lambda msg=warning: messagebox.showwarning("Speaker identification warning", msg))
+                    self._set_status(f"Finished with {len(speaker_failures)} speaker identification warning(s).")
+                elif count == 1:
                     self.root.after(0, lambda: messagebox.showinfo("Done", f"Saved:\n{self.final_output_files[0]}"))
+                    self._set_status(f"Done. {count} output file(s) created in {elapsed:.1f}s.")
                 else:
                     self.root.after(0, lambda: messagebox.showinfo("Done", f"{count} output files created."))
-                self._set_status(f"Done. {count} output file(s) created in {elapsed:.1f}s.")
+                    self._set_status(f"Done. {count} output file(s) created in {elapsed:.1f}s.")
             else:
                 print("\nNo files were transcribed.")
                 self._set_status("No files were transcribed.")
