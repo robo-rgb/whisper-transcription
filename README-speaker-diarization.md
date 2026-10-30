@@ -1,6 +1,6 @@
 # Optional local speaker identification
 
-This feature is under development on `feature/speaker-diarization`. It
+This feature is included in Auto Transcriber 1.4.0. It
 transcribes with the existing OpenAI Whisper installation and optionally
 labels *who spoke when* using **pyannote Community-1**. It does not identify
 the actual names of speakers. Always review speaker labels before publication.
@@ -138,12 +138,13 @@ No model download is necessary for lightweight regression tests:
 
 ```powershell
 python -m unittest discover -s tests -v
-python -m compileall -q transcribe-gui.py speaker_segments.py diarization_runner.py diarization_worker.py
+python -m compileall -q transcribe-gui.py speaker_segments.py diarization_runner.py diarization_worker.py transcript_cleanup.py
 ```
 
 Automated GitHub Actions checks run on Windows and Linux, with Python 3.11 and
 3.12, and validate both PowerShell scripts' syntax. These tests check model
 integration contracts, segmentation, exports, and error handling; they do
 not run pyannote weights or measure actual GPU performance or speaker accuracy.
-Integration validation still requires a real multi-speaker recording on the
-target Windows computer.
+The RTX 4090 target configuration has been validated with a real three-speaker
+recording. New machines should still validate a multi-speaker recording locally
+before relying on speaker labels.
