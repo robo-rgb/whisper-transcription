@@ -4,7 +4,7 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$InputMedia,
-    [ValidateRange(1, 8)]
+    [ValidateRange(0, 8)]
     [int]$Speakers = 0
 )
 
@@ -56,7 +56,7 @@ try {
     }
 
     $data = Get-Content -Raw -LiteralPath $Json | ConvertFrom-Json
-    $turns = @($data.turns)
+    $turns = @($data.turns | Where-Object { $null -ne $_ })
     $speakers = @($turns | ForEach-Object { $_.speaker } | Sort-Object -Unique)
     Write-Host "Recognized $($speakers.Count) distinct speaker label(s), $($turns.Count) speaker turn(s)."
     if ($turns.Count -eq 0) {
